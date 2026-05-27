@@ -114,11 +114,23 @@ seen = set()
 
 @app.route("/", methods=["GET", "POST"])
 def health():
-    return make_response(
-        json.dumps({"status": "ok"}),
-        200,
-        {"Content-Type": "application/json"}
-    )
+    if request.method == "POST":
+        raw = request.get_data(as_text=True)
+        print(f"ROOT POST RAW: {raw[:500]}")
+        try:
+            body = json.loads(raw) if raw else {}
+        except Exception:
+            return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
+        
+        if body.get("type") == "url_verification" or "challenge" in body:
+            challenge = body.get("challenge", "")
+            print(f"ROOT CHALLENGE: {challenge}")
+            return make_response(json.dumps({"challenge": challenge}), 200, {"Content-Type": "application/json"})
+        
+        # Also handle messages at root
+        return webhook()
+    
+    return make_response(json.dumps({"status": "ok"}), 200, {"Content-Type": "application/json"})
 
 
 @app.route("/webhook", methods=["GET", "POST"])
