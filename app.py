@@ -1,24 +1,18 @@
 import os
 import json
-import hashlib
-import hmac
-import time
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 
 app = Flask(__name__)
 
-# ── CONFIG (set these as environment variables in Render) ──────────────────
 FEISHU_APP_ID = os.environ.get("FEISHU_APP_ID")
 FEISHU_APP_SECRET = os.environ.get("FEISHU_APP_SECRET")
-FEISHU_VERIFY_TOKEN = os.environ.get("FEISHU_VERIFY_TOKEN", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
-# ── PHILIPS DATA SYSTEM PROMPT ─────────────────────────────────────────────
-SYSTEM_PROMPT = """You are a specialized analytics assistant for the Philips TikTok Shop Germany. 
+SYSTEM_PROMPT = """You are a specialized analytics assistant for the Philips TikTok Shop Germany.
 Answer questions precisely based on this data. Be concise and actionable.
 Respond in the same language as the question (German if asked in German, English if asked in English).
-Format answers clearly — use bullet points and numbers where helpful.
+Format answers clearly using bullet points and numbers where helpful.
 
 COMPLETE DATA:
 
@@ -35,7 +29,7 @@ Dec 2025: EUR 153,353 | LIVE GMV dominated at EUR 252,966 (TikTok co-funding)
 
 GMV MAX FULL YEAR MAY 2025 - MAY 2026:
 Total spend: EUR 278,220 | Revenue: EUR 1,795,715 | ROI: 6.45x | Orders: 49,259
-Product cards: 20.92x ROI vs videos 5.20x ROI — massively underinvested in cards
+Product cards: 20.92x ROI vs videos 5.20x ROI - massively underinvested in cards
 Budget split: Videos 92% (EUR 256K) vs Cards 8% (EUR 22K)
 
 Campaigns by revenue:
@@ -115,124 +109,142 @@ Black Friday Nov 28 2026: EUR 35-50K single day potential
 Full year 2026 target: EUR 2.7-2.8M
 3-year: 2026 EUR 2.7M | 2027 EUR 3-5M | 2028 EUR 6-10M
 
-TOP PRIORITY ACTIONS RIGHT NOW:
-1. Restock 7+ OOS SKUs today (Facial Hair Remover 5000 biggest campaign stopped)
-2. Pause reapez from all 11 campaigns (79% refund rate, 2.02x ROI)
+TOP PRIORITY ACTIONS:
+1. Restock 7+ OOS SKUs today
+2. Pause reapez from all 11 campaigns (79% refund rate)
 3. Fix LIVE GMV Max Campaign 1 (reconnect account ID: 7517310666145285142)
 4. Pause Beauty Set GMV Max (EUR 0 revenue)
 5. Brief DorianLebt for 5+ new videos (114x ROI)
-6. Scale Lumea 8000/9000 GMV Max (15.26x ROI, underbudgeted)
+6. Scale Lumea 8000/9000 GMV Max (15.26x ROI)
 7. Scale Starke Deals (142x ROI on EUR 278 spend)"""
 
 
-def get_tenant_access_token():
-    """Get Feishu access token."""
-    url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-    resp = requests.post(url, json={
-        "app_id": FEISHU_APP_ID,
-        "app_secret": FEISHU_APP_SECRET
-    })
-    return resp.json().get("tenant_access_token")
+def get_token():
+    r = requests.post(
+        "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+        json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}
+    )
+    return r.json().get("tenant_access_token", "")
 
 
-def send_message(chat_id, text, msg_type="text"):
-    """Send a message back to Feishu."""
-    token = get_tenant_access_token()
-    url = "https://open.feishu.cn/open-apis/im/v1/messages"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "receive_id": chat_id,
-        "msg_type": "text",
-        "content": json.dumps({"text": text})
-    }
-    params = {"receive_id_type": "chat_id"}
-    requests.post(url, headers=headers, json=payload, params=params)
+def send_reply(chat_id, text):
+    token = get_token()
+    requests.post(
+        "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text})}
+    )
 
 
 def ask_claude(question):
-    """Send question to Claude API with Philips data context."""
-    url = "https://api.anthropic.com/v1/messages"
-    headers = {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    payload = {
-        "model": "claude-sonnet-4-20250514",
-        "max_tokens": 1024,
-        "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": question}]
-    }
-    resp = requests.post(url, headers=headers, json=payload)
-    data = resp.json()
-    if data.get("content"):
-        return data["content"][0]["text"]
-    return "Sorry, I could not generate an answer. Please try again."
-
-
-# Track processed messages to avoid duplicates
-processed_messages = set()
-
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    """Main webhook endpoint — receives all Feishu events."""
-    body = request.get_json()
-
-    # Handle URL verification challenge from Feishu
-    if body.get("type") == "url_verification":
-        return jsonify({"challenge": body.get("challenge")})
-
-    # Get the event
-    event = body.get("event", {})
-    msg = event.get("message", {})
-    msg_id = msg.get("message_id", "")
-
-    # Skip duplicate messages
-    if msg_id in processed_messages:
-        return jsonify({"code": 0})
-    processed_messages.add(msg_id)
-
-    # Only handle text messages
-    if msg.get("message_type") != "text":
-        return jsonify({"code": 0})
-
-    # Extract the text
     try:
-        content = json.loads(msg.get("content", "{}"))
-        text = content.get("text", "").strip()
-        # Remove @bot mention if present
-        text = text.replace("@_user_1", "").strip()
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json={
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 1024,
+                "system": SYSTEM_PROMPT,
+                "messages": [{"role": "user", "content": question}]
+            },
+            timeout=30
+        )
+        data = r.json()
+        if data.get("content"):
+            return data["content"][0]["text"]
+    except Exception as e:
+        return f"Error: {str(e)}"
+    return "Sorry, could not get an answer. Please try again."
+
+
+seen = set()
+
+
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+    if request.method == "GET":
+        return jsonify({"status": "ok"})
+
+    # Try to parse body
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+    except Exception:
+        return jsonify({"challenge": ""})
+
+    # Handle Feishu URL verification (both v1 and v2)
+    if "challenge" in body:
+        challenge = body.get("challenge", "")
+        resp = make_response(json.dumps({"challenge": challenge}))
+        resp.headers["Content-Type"] = "application/json"
+        return resp
+
+    if body.get("type") == "url_verification":
+        challenge = body.get("challenge", "")
+        resp = make_response(json.dumps({"challenge": challenge}))
+        resp.headers["Content-Type"] = "application/json"
+        return resp
+
+    # Get event data
+    header = body.get("header", {})
+    event = body.get("event", {})
+
+    # Only handle message events
+    event_type = header.get("event_type", "") or body.get("event", {}).get("type", "")
+    if "message" not in str(event_type).lower() and "receive" not in str(event_type).lower():
+        # Try old format
+        if body.get("event", {}).get("type") not in ["message", None]:
+            return jsonify({"code": 0})
+
+    msg = event.get("message", {})
+    if not msg:
+        msg = event
+
+    msg_id = msg.get("message_id", "") or body.get("event", {}).get("message_id", "")
+
+    # Deduplicate
+    if msg_id and msg_id in seen:
+        return jsonify({"code": 0})
+    if msg_id:
+        seen.add(msg_id)
+
+    # Get message text
+    try:
+        content_raw = msg.get("content", "") or event.get("text", "")
+        if isinstance(content_raw, str) and content_raw.startswith("{"):
+            content = json.loads(content_raw)
+            text = content.get("text", "").strip()
+        else:
+            text = str(content_raw).strip()
+        # Remove @mentions
+        text = text.replace("\uff20", "").strip()
+        import re
+        text = re.sub(r'@\S+', '', text).strip()
     except Exception:
         return jsonify({"code": 0})
 
     if not text:
         return jsonify({"code": 0})
 
-    # Get chat ID to reply to
-    chat_id = msg.get("chat_id", "")
+    chat_id = msg.get("chat_id", "") or event.get("open_chat_id", "")
     if not chat_id:
         return jsonify({"code": 0})
 
-    # Send typing indicator (optional — just reply quickly)
-    # Get answer from Claude
+    # Get answer and reply
     answer = ask_claude(text)
-
-    # Send answer back to Feishu
-    send_message(chat_id, answer)
+    send_reply(chat_id, answer)
 
     return jsonify({"code": 0})
 
 
 @app.route("/", methods=["GET"])
 def health():
-    return jsonify({"status": "Philips Analytics Bot is running"})
+    return jsonify({"status": "Philips Analytics Bot running", "version": "2.0"})
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
+    app.run(host="0.0.0.0", port=port, debug=False)
