@@ -85,6 +85,7 @@ def send_reply(chat_id, text):
 
 
 def ask_claude(question):
+    print(f"CLAUDE CALL: key exists={bool(ANTHROPIC_API_KEY)}, key prefix={ANTHROPIC_API_KEY[:10] if ANTHROPIC_API_KEY else 'NONE'}")
     try:
         r = requests.post(
             "https://api.anthropic.com/v1/messages",
@@ -94,18 +95,23 @@ def ask_claude(question):
                 "content-type": "application/json"
             },
             json={
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 1024,
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 512,
                 "system": SYSTEM_PROMPT,
                 "messages": [{"role": "user", "content": question}]
             },
-            timeout=30
+            timeout=25
         )
+        print(f"CLAUDE STATUS: {r.status_code}")
         data = r.json()
+        print(f"CLAUDE RESPONSE KEYS: {list(data.keys())}")
         if data.get("content"):
             return data["content"][0]["text"]
+        if data.get("error"):
+            return f"API Error: {data['error'].get('message', 'unknown')}"
     except Exception as e:
-        return f"Error contacting AI: {str(e)}"
+        print(f"CLAUDE EXCEPTION: {str(e)}")
+        return f"Error: {str(e)}"
     return "Sorry, could not get an answer."
 
 
