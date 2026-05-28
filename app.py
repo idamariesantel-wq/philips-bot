@@ -1,3 +1,11 @@
+def clean_response(text):
+    import re
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold** -> bold
+    text = re.sub(r'\*(.+?)\*', r'\1', text)        # *italic* -> italic
+    text = re.sub(r'^#{1,3} (.+)$', r'\1:', text, flags=re.MULTILINE)  # ### Header -> Header:
+    text = re.sub(r'^[-*] ', '- ', text, flags=re.MULTILINE)  # normalize bullets
+    return text.strip()
+
 import os
 import json
 import re
@@ -106,7 +114,7 @@ def ask_claude(question):
         data = r.json()
         print(f"CLAUDE RESPONSE KEYS: {list(data.keys())}")
         if data.get("content"):
-            return data["content"][0]["text"]
+            return clean_response(data["content"][0]["text"])
         if data.get("error"):
             return f"API Error: {data['error'].get('message', 'unknown')}"
     except Exception as e:
@@ -116,6 +124,35 @@ def ask_claude(question):
 
 
 seen = set()
+welcomed = set()
+
+WELCOME_EN = (
+    "Hi! I am the Philips TikTok Shop Analytics Bot for Germany.\n\n"
+    "I have full data from Nov 2025 to May 2026. Ask me anything:\n\n"
+    "Revenue & GMV - What is our total GMV?\n"
+    "Campaigns - Show me all 2026 campaigns\n"
+    "GMV Max - Which campaigns perform best?\n"
+    "Creators - Who are the top creators?\n"
+    "Stock - Which products are out of stock?\n"
+    "Refunds - Why is the refund rate so high?\n"
+    "Forecast - What is the forecast for Q4 2026?\n"
+    "Priorities - What should I do this week?\n\n"
+    "You can ask in English or German. Just type your question!"
+)
+
+WELCOME_DE = (
+    "Hallo! Ich bin der Philips TikTok Shop Analytics Bot fuer Deutschland.\n\n"
+    "Ich habe alle Daten von Nov 2025 bis Mai 2026. Frag mich alles:\n\n"
+    "Umsatz & GMV - Wie hoch ist unser GMV?\n"
+    "Kampagnen - Zeig mir alle 2026 Kampagnen\n"
+    "GMV Max - Welche Kampagnen laufen am besten?\n"
+    "Creator - Wer sind die Top Creator?\n"
+    "Lager - Welche Produkte sind nicht vorraeting?\n"
+    "Retouren - Warum ist die Retourenquote so hoch?\n"
+    "Prognose - Wie sieht die Prognose fuer Q4 2026 aus?\n"
+    "Prioritaeten - Was soll ich diese Woche tun?\n\n"
+    "Du kannst auf Englisch oder Deutsch fragen. Einfach tippen!"
+)
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -219,11 +256,71 @@ def webhook():
     if not text:
         return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
 
+    # Send welcome on first contact
+    if chat_id not in welcomed:
+        welcomed.add(chat_id)
+        german = any(w in text.lower() for w in ['hallo','hi','hey','was','wie','zeig','welche','bitte','kannst'])
+        send_reply(chat_id, WELCOME_DE if german else WELCOME_EN)
+        import time
+        time.sleep(1)
+
     answer = ask_claude(text)
     send_reply(chat_id, answer)
 
     return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
 
+
+
+@app.route("/ask", methods=["POST", "OPTIONS"])
+def ask_proxy():
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        resp = make_response("", 200)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return resp
+
+    body = request.get_json(force=True, silent=True) or {}
+    question = body.get("question", "")
+    api_key = body.get("api_key", "") or ANTHROPIC_API_KEY
+
+    if not question:
+        resp = make_response(json.dumps({"error": "No question"}), 400)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Content-Type"] = "application/json"
+        return resp
+
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 800,
+                "system": "You are an analytics assistant for the Philips TikTok Shop Germany. Answer concisely and accurately. Respond in the same language as the question.",
+                "messages": [{"role": "user", "content": question}]
+            },
+            timeout=25
+        )
+        data = r.json()
+        if data.get("content"):
+            answer = data["content"][0]["text"]
+        elif data.get("error"):
+            answer = "Error: " + data["error"].get("message", "unknown")
+        else:
+            answer = "Sorry, could not get an answer."
+    except Exception as e:
+        answer = "Error: " + str(e)
+
+    resp = make_response(json.dumps({"answer": answer}), 200)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Content-Type"] = "application/json"
+    return resp
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
