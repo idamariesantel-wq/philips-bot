@@ -1,16 +1,8 @@
-def clean_response(text):
-    import re
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold** -> bold
-    text = re.sub(r'\*(.+?)\*', r'\1', text)        # *italic* -> italic
-    text = re.sub(r'^#{1,3} (.+)$', r'\1:', text, flags=re.MULTILINE)  # ### Header -> Header:
-    text = re.sub(r'^[-*] ', '- ', text, flags=re.MULTILINE)  # normalize bullets
-    return text.strip()
-
 import os
 import json
 import re
 import requests
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, make_response
 
 app = Flask(__name__)
 
@@ -21,6 +13,7 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SYSTEM_PROMPT = """You are a specialized analytics assistant for the Philips TikTok Shop Germany.
 Answer questions precisely based on this data. Be concise and actionable.
 Respond in the same language as the question (German if asked in German, English if asked in English).
+Do not use markdown formatting like **bold** or *italic* — use plain text only.
 
 COMPLETE DATA:
 
@@ -75,25 +68,36 @@ TOP PRIORITIES:
 5. Scale Lumea and Starke Deals"""
 
 
+def clean_response(text):
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'^#{1,3} (.+)$', r'\1:', text, flags=re.MULTILINE)
+    return text.strip()
+
+
 def get_token():
     r = requests.post(
         "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-        json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}
+        json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET},
+        timeout=10
     )
     return r.json().get("tenant_access_token", "")
 
 
 def send_reply(chat_id, text):
-    token = get_token()
-    requests.post(
-        "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text})}
-    )
+    try:
+        token = get_token()
+        requests.post(
+            "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text})},
+            timeout=10
+        )
+    except Exception as e:
+        print(f"SEND ERROR: {e}")
 
 
 def ask_claude(question):
-    print(f"CLAUDE CALL: key exists={bool(ANTHROPIC_API_KEY)}, key prefix={ANTHROPIC_API_KEY[:10] if ANTHROPIC_API_KEY else 'NONE'}")
     try:
         r = requests.post(
             "https://api.anthropic.com/v1/messages",
@@ -104,149 +108,44 @@ def ask_claude(question):
             },
             json={
                 "model": "claude-haiku-4-5-20251001",
-                "max_tokens": 512,
+                "max_tokens": 600,
                 "system": SYSTEM_PROMPT,
                 "messages": [{"role": "user", "content": question}]
             },
             timeout=25
         )
-        print(f"CLAUDE STATUS: {r.status_code}")
         data = r.json()
-        print(f"CLAUDE RESPONSE KEYS: {list(data.keys())}")
         if data.get("content"):
             return clean_response(data["content"][0]["text"])
         if data.get("error"):
-            return f"API Error: {data['error'].get('message', 'unknown')}"
+            return "Error: " + data["error"].get("message", "unknown")
     except Exception as e:
-        print(f"CLAUDE EXCEPTION: {str(e)}")
         return f"Error: {str(e)}"
     return "Sorry, could not get an answer."
 
 
+import threading
 seen = set()
-welcomed = set()
-
-WELCOME_EN = (
-    "Hi! I am the Philips TikTok Shop Analytics Bot for Germany.\n\n"
-    "I have full data from Nov 2025 to May 2026. Ask me anything:\n\n"
-    "Revenue & GMV - What is our total GMV?\n"
-    "Campaigns - Show me all 2026 campaigns\n"
-    "GMV Max - Which campaigns perform best?\n"
-    "Creators - Who are the top creators?\n"
-    "Stock - Which products are out of stock?\n"
-    "Refunds - Why is the refund rate so high?\n"
-    "Forecast - What is the forecast for Q4 2026?\n"
-    "Priorities - What should I do this week?\n\n"
-    "You can ask in English or German. Just type your question!"
-)
-
-WELCOME_DE = (
-    "Hallo! Ich bin der Philips TikTok Shop Analytics Bot fuer Deutschland.\n\n"
-    "Ich habe alle Daten von Nov 2025 bis Mai 2026. Frag mich alles:\n\n"
-    "Umsatz & GMV - Wie hoch ist unser GMV?\n"
-    "Kampagnen - Zeig mir alle 2026 Kampagnen\n"
-    "GMV Max - Welche Kampagnen laufen am besten?\n"
-    "Creator - Wer sind die Top Creator?\n"
-    "Lager - Welche Produkte sind nicht vorraeting?\n"
-    "Retouren - Warum ist die Retourenquote so hoch?\n"
-    "Prognose - Wie sieht die Prognose fuer Q4 2026 aus?\n"
-    "Prioritaeten - Was soll ich diese Woche tun?\n\n"
-    "Du kannst auf Englisch oder Deutsch fragen. Einfach tippen!"
-)
 
 
-@app.route("/", methods=["GET", "POST"])
-def health():
-    if request.method == "POST":
-        raw = request.get_data(as_text=True)
-        print(f"ROOT POST RAW: {raw[:500]}")
-        try:
-            body = json.loads(raw) if raw else {}
-        except Exception:
-            return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
-        
-        if body.get("type") == "url_verification" or "challenge" in body:
-            challenge = body.get("challenge", "")
-            print(f"ROOT CHALLENGE: {challenge}")
-            return make_response(json.dumps({"challenge": challenge}), 200, {"Content-Type": "application/json"})
-        
-        # Also handle messages at root
-        return webhook()
-    
-    return make_response(json.dumps({"status": "ok"}), 200, {"Content-Type": "application/json"})
-
-
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    # Always return proper JSON
-    if request.method == "GET":
-        return make_response(
-            json.dumps({"code": 0, "msg": "ok"}),
-            200,
-            {"Content-Type": "application/json"}
-        )
-
-    # Get raw body
-    raw = request.get_data(as_text=True)
-    print(f"RAW BODY: {raw[:500]}")
-
-    try:
-        body = json.loads(raw) if raw else {}
-    except Exception:
-        return make_response(
-            json.dumps({"code": 0}),
-            200,
-            {"Content-Type": "application/json"}
-        )
-
-    print(f"PARSED BODY KEYS: {list(body.keys())}")
-
-    # Handle ALL possible challenge formats from Feishu
-    # Format 1: {"challenge": "xxx", "token": "xxx", "type": "url_verification"}
-    # Format 2: {"encrypt": "xxx"} (encrypted)
-    # Format 3: nested under schema
-
-    if body.get("type") == "url_verification" or "challenge" in body:
-        challenge = body.get("challenge", "")
-        print(f"CHALLENGE: {challenge}")
-        resp = make_response(
-            json.dumps({"challenge": challenge}),
-            200,
-            {"Content-Type": "application/json"}
-        )
-        return resp
-
-    # Handle message events
-    # Support both v1.0 and v2.0 event formats
+def handle_event(body):
     event = body.get("event", {})
-    header = body.get("header", {})
-
-    # v2.0 format
     msg = event.get("message", {})
-    chat_id = msg.get("chat_id", "")
-    msg_id = msg.get("message_id", "")
-    content_raw = msg.get("content", "")
-
-    # v1.0 format fallback
-    if not chat_id:
-        chat_id = event.get("open_chat_id", "")
-        msg_id = event.get("message_id", "")
-        content_raw = event.get("text", "")
+    chat_id = msg.get("chat_id", "") or event.get("open_chat_id", "")
+    msg_id = msg.get("message_id", "") or event.get("message_id", "")
+    content_raw = msg.get("content", "") or event.get("text", "")
 
     if not chat_id:
         return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
 
-    # Deduplicate
     if msg_id in seen:
         return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
     if msg_id:
         seen.add(msg_id)
 
-    # Extract text
     try:
         if isinstance(content_raw, str) and content_raw.strip().startswith("{"):
-            content_obj = json.loads(content_raw)
-            text = content_obj.get("text", "").strip()
+            text = json.loads(content_raw).get("text", "").strip()
         else:
             text = str(content_raw).strip()
         text = re.sub(r'@[^\s]+', '', text).strip()
@@ -256,71 +155,44 @@ def webhook():
     if not text:
         return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
 
-    # Send welcome on first contact
-    if chat_id not in welcomed:
-        welcomed.add(chat_id)
-        german = any(w in text.lower() for w in ['hallo','hi','hey','was','wie','zeig','welche','bitte','kannst'])
-        send_reply(chat_id, WELCOME_DE if german else WELCOME_EN)
-        import time
-        time.sleep(1)
+    def reply():
+        answer = ask_claude(text)
+        send_reply(chat_id, answer)
 
-    answer = ask_claude(text)
-    send_reply(chat_id, answer)
+    t = threading.Thread(target=reply)
+    t.daemon = True
+    t.start()
 
     return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
 
 
+@app.route("/", methods=["GET", "POST"])
+def root():
+    if request.method == "POST":
+        raw = request.get_data(as_text=True)
+        try:
+            body = json.loads(raw) if raw else {}
+        except Exception:
+            return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
+        if body.get("type") == "url_verification" or "challenge" in body:
+            return make_response(json.dumps({"challenge": body.get("challenge", "")}), 200, {"Content-Type": "application/json"})
+        return handle_event(body)
+    return make_response(json.dumps({"status": "ok"}), 200, {"Content-Type": "application/json"})
 
-@app.route("/ask", methods=["POST", "OPTIONS"])
-def ask_proxy():
-    # Handle CORS preflight
-    if request.method == "OPTIONS":
-        resp = make_response("", 200)
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        return resp
 
-    body = request.get_json(force=True, silent=True) or {}
-    question = body.get("question", "")
-    api_key = body.get("api_key", "") or ANTHROPIC_API_KEY
-
-    if not question:
-        resp = make_response(json.dumps({"error": "No question"}), 400)
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        resp.headers["Content-Type"] = "application/json"
-        return resp
-
+@app.route("/webhook", methods=["GET", "POST"])
+def webhook():
+    if request.method == "GET":
+        return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
+    raw = request.get_data(as_text=True)
     try:
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            },
-            json={
-                "model": "claude-haiku-4-5-20251001",
-                "max_tokens": 800,
-                "system": "You are an analytics assistant for the Philips TikTok Shop Germany. Answer concisely and accurately. Respond in the same language as the question.",
-                "messages": [{"role": "user", "content": question}]
-            },
-            timeout=25
-        )
-        data = r.json()
-        if data.get("content"):
-            answer = data["content"][0]["text"]
-        elif data.get("error"):
-            answer = "Error: " + data["error"].get("message", "unknown")
-        else:
-            answer = "Sorry, could not get an answer."
-    except Exception as e:
-        answer = "Error: " + str(e)
+        body = json.loads(raw) if raw else {}
+    except Exception:
+        return make_response(json.dumps({"code": 0}), 200, {"Content-Type": "application/json"})
+    if body.get("type") == "url_verification" or "challenge" in body:
+        return make_response(json.dumps({"challenge": body.get("challenge", "")}), 200, {"Content-Type": "application/json"})
+    return handle_event(body)
 
-    resp = make_response(json.dumps({"answer": answer}), 200)
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Content-Type"] = "application/json"
-    return resp
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
