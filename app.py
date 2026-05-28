@@ -46,19 +46,90 @@ Spend: EUR 296,913 | Revenue: EUR 1,934,499 | ROI: 6.52x | CPO: EUR 5.64
 CAMPAIGNS 2026:
 Spring Sale: EUR 272,850 | April Deals: EUR 258,171 | Summer Sale LIVE NOW
 
-CREATORS MAY 18-24:
-misstestet: EUR 15,509 | 9% refunds | #1
-reapez: EUR 1,811 | 79% refunds CRITICAL
-dorianlebt: EUR 1,432 | 114x GMV Max ROI
-deal_detektivin: EUR 2,018 | 4% refunds | 112x sample ROI
-emmasbeautyy1: EUR 1,768 | 0% refunds | EUR 196 AOV
+CREATOR LIST FEB 28 - MAY 27 2026 (3 months, 36,394 creators total):
+Top 20 by GMV with refund rates:
+1. misstestet: EUR 94,201 GMV | 2,921 orders | 7.3% refunds | 13,637 followers
+2. jonas.jamess: EUR 67,803 GMV | 2,393 orders | 5.7% refunds | 24,548 followers
+3. reapez: EUR 54,728 GMV | 1,393 orders | 9.2% refunds 3-month (79% was 1-week spike) | 17,922 followers
+4. fundkugel: EUR 38,634 GMV | 1,441 orders | 4.3% refunds | 3,210 followers
+5. netterhase: EUR 37,886 GMV | 1,266 orders | 6.4% refunds | 23,366 followers
+6. diegotestet: EUR 36,722 GMV | 1,190 orders | 5.7% refunds | 15,976 followers
+7. produktguru: EUR 30,046 GMV | 1,095 orders | 7.6% refunds | 93,413 followers
+8. beautytalkmitanna: EUR 27,429 GMV | 1,055 orders | 11.0% refunds | 213,190 followers
+9. danbor00: EUR 26,590 GMV | 818 orders | 8.2% refunds | 326,103 followers
+10. nr.1_trendvault: EUR 21,778 GMV | 743 orders | 9.2% refunds | 19,894 followers
+11. ttbestedeals: EUR 21,265 GMV | 697 orders | 5.9% refunds | 9,978 followers
+12. marinus.bestfinds: EUR 20,586 GMV | 753 orders | 4.6% refunds | 31,605 followers
+13. deal_detektivin: EUR 14,571 GMV | 496 orders | 2.4% refunds | 7,003 followers - BEST refund rate
+14. hinatasdiary: EUR 14,464 GMV | 524 orders | 4.2% refunds | 15,953 followers
+15. nextlivinghub: EUR 14,051 GMV | 566 orders | 5.6% refunds | 16,160 followers
+16. hamburg.411: EUR 12,918 GMV | 440 orders | 6.7% refunds | 35,169 followers
+17. vani_de_paris_: EUR 12,585 GMV | 627 orders | 5.0% refunds | 10,609 followers
+18. adrian.ptrc: EUR 12,368 GMV | 441 orders | 4.3% refunds | 10,285 followers
+19. gigi_skinvia: EUR 11,686 GMV | 459 orders | 6.8% refunds | 2,942 followers
+20. vinzenz.mp4: EUR 11,313 GMV | 417 orders | 7.5% refunds | 18,780 followers
 
-OOS PRODUCTS: OneBlade Intimate, Facial Hair Remover 5000, OneBlade Face 360, Body and Balls, OneBlade Duo Set
+Key insight: reapez 79% refund rate was a 1-week anomaly. 3-month rate is 9.2% which is above average but not critical.
+Best quality creator: deal_detektivin with only 2.4% refunds over 3 months.
+Highest follower count in top 20: danbor00 with 326,103 followers.
+beautytalkmitanna has 213,190 followers with 11% refunds - worth monitoring.
+
+AFFILIATE CORE STATS FEB 28 - MAY 27 2026:
+Total Affiliate GMV: EUR 991,010 | LIVE GMV: EUR 8,523 | Video GMV: EUR 975,766
+Items sold: 32,677 | Est. commission: EUR 87,022
+Refunded GMV: EUR 87,791 (8.9% overall refund rate)
+Items refunded: 2,233 | Collaborations: 14,416
+LIVE streams: 1,350 | Shoppable videos: 13,406lade Intimate, Facial Hair Remover 5000, OneBlade Face 360, Body and Balls, OneBlade Duo Set
 LOW STOCK: Lumea 8000 CRITICAL
 
 FORECASTS:
 Jun: EUR 185-210K | Jul: EUR 140-165K | Aug: EUR 120-145K | Sep: EUR 185-210K | Oct: EUR 210-260K
 Black Friday 2026: EUR 35-50K | Full year 2026: EUR 2.7-2.8M
+
+
+PRODUCT CARD LIST MAY 21-27 2026 (per SKU performance):
+Ranked by GMV:
+1. OneBlade Intimate QP1924/22+30: GMV EUR 1,787 | Conversion 0.14% | 39,836 viewers - BEST OVERALL
+2. OneBlade 360 Face+Body QP4631/65: GMV EUR 498 | Conversion 0.01% | 86,372 viewers - most traffic
+3. Lumea Series 8000 BRI945/00: GMV EUR 315 | Conversion 0.01% | 23,326 viewers
+4. OneBlade SkinProtect Klinge QP219/52: GMV EUR 144 | Conversion 0.06% | 6,784 viewers
+5. Sonicare 3100 HX4031/21: GMV EUR 144 | Conversion 0.01% | 8,294 viewers
+6. Facial Hair Remover 5000 BRR454/00: GMV EUR 80 | Conversion 0.02% | 15,288 viewers
+7. Nose & Ear Trimmer NT3650/16: GMV EUR 55 | Conversion 0.04% | 11,057 viewers
+8. Avent Natural Response Bottle SCY670/02: GMV EUR 38 | Conversion 0.05% | 5,646 viewers
+9. OneBlade 360 Blade QP410/50: GMV EUR 31 | Conversion 0.02% | 11,121 viewers
+
+Zero GMV products (traffic but no sales):
+- Skin LED Beauty Set BRE738/00: 25,505 viewers, 0% conversion
+- Lumea 9000 BRI955/00: 11,696 viewers, 0.01% conversion, EUR 0
+- OneBlade Face 360 QP2734/31: 6,601 viewers, 0% conversion - OOS
+- Body & Balls BG3485/15: 1,461 viewers, 0% - OOS
+- Sonicare S2 Ultra Soft HX6052/10: 1,425 viewers, 0.21% conversion but EUR 0 (too low traffic)
+
+Key insight: OneBlade Intimate is #1 product by GMV AND conversion rate (0.14%) among revenue-generating products.
+Facial Hair Remover has low GMV this week (EUR 80) because it is out of stock.
+
+LIVE PERFORMANCE Feb 27 - May 27 2026 (3 months daily data):
+Monthly LIVE GMV:
+- Feb 2026: EUR 1,024 (programme just starting)
+- Mar 2026: EUR 36,757 (strong ramp up)
+- Apr 2026: EUR 34,752 (peak month)
+- May 2026: EUR 8,842 (sharp decline)
+Total 3-month LIVE GMV: EUR 81,375
+Peak day: Apr 30 2026 EUR 7,816
+Key insight: LIVE peaked in March-April during campaign periods then collapsed in May. 
+Only 2 of ~9.7 daily LIVE streams generate any revenue.
+
+VIDEO PERFORMANCE Feb 27 - May 27 2026 (3 months daily data):
+Monthly Video GMV:
+- Feb 2026: EUR 25,743 (early stage)
+- Mar 2026: EUR 399,278 (Spring Sale ramp - massive growth)
+- Apr 2026: EUR 299,267 (April Deals campaign)
+- May 2026: EUR 278,829 (Spring Escape + Summer Sale start)
+Total 3-month Video GMV: EUR 1,003,116
+Peak day: Apr 28 2026 EUR 31,083
+Key insight: Video GMV grew 15x from Feb to March driven by Spring Sale campaign.
+Video is the dominant revenue channel at 98% of content GMV vs 2% LIVE.
 
 TOP PRIORITIES:
 1. Restock OOS SKUs today
